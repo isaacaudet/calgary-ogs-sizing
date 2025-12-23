@@ -84,45 +84,63 @@ def main():
         rpt_file.unlink()
     
     print("Running 1-year continuous simulation (2020)...")
-    print("This may take 1-5 minutes depending on resources...")
+    print("Capturing flow data during simulation...")
     
     t_start = time.perf_counter()
+    flow_data = []  # Store (elapsed_hours, flow_cms) tuples
     
     try:
         from swmm.toolkit import solver
+        import numpy as np
         
-        # Use swmm_run for simplest approach
-        solver.swmm_run(str(inp_file), str(rpt_file), str(out_file))
+        # Use stepped approach to capture flow data directly
+        solver.swmm_open(str(inp_file), str(rpt_file), str(out_file))
+        solver.swmm_start(1)  # 1 = save results
+        
+        # Find link index for Link_1
+        link_idx = solver.swmm_getObjectIndex(3, "Link_1")  # 3 = LINK object type
+        print(f"Link_1 index: {link_idx}")
+        
+        step_count = 0
+        report_interval = 3600  # Report every hour (3600 seconds)
+        last_report = 0
+        
+        while True:
+            elapsed_sec = solver.swmm_step()
+            if elapsed_sec == 0:
+                break
+            
+            step_count += 1
+            
+            # Get flow at report intervals (approximately hourly)
+            if elapsed_sec - last_report >= report_interval:
+                # Get current flow rate for Link_1 (attribute 0 = flow rate)
+                flow_cms = solver.swmm_getLinkResult(link_idx, 0)
+                flow_data.append((elapsed_sec / 3600, flow_cms))  # Store hours, flow
+                last_report = elapsed_sec
+                
+                if len(flow_data) % 100 == 0:
+                    print(f"  Captured {len(flow_data)} flow records, elapsed: {elapsed_sec/86400:.1f} days")
+        
+        solver.swmm_end()
+        solver.swmm_close()
         
         t_sim = time.perf_counter() - t_start
         print(f"\n>>> SWMM SIMULATION TIME: {t_sim:.2f} seconds <<<")
+        print(f">>> Total steps: {step_count:,} <<<")
+        print(f">>> Flow records captured: {len(flow_data):,} <<<")
         
-        if out_file.exists():
-            print(f"Output file: {out_file}")
-            print(f"Size: {out_file.stat().st_size / (1024*1024):.1f} MB")
-            
-            # Debug: check output file header
-            from swmm.toolkit import output, shared_enum
-            try:
-                handle = output.init()
-                output.open(handle, str(out_file))
-                proj_size = output.get_proj_size(handle)
-                print(f"Output file proj_size: {proj_size}")
-                print(f"  Subcatchments: {proj_size[0]}")
-                print(f"  Nodes: {proj_size[1]}")
-                print(f"  Links: {proj_size[2]}")
-                print(f"  Pollutants: {proj_size[3]}")
-                print(f"  Periods: {proj_size[4]}")
-                output.close(handle)
-            except Exception as e:
-                print(f"Error reading output file: {e}")
+        # Convert to numpy array for analysis
+        if flow_data:
+            flows = np.array([f[1] for f in flow_data])
+            print(f"Flow stats: min={flows.min():.4f}, max={flows.max():.4f}, mean={flows.mean():.4f} CMS")
         
-        # Print report file to see any errors/warnings
+        # Print report file summary
         if rpt_file.exists():
-            print("\n--- SWMM REPORT FILE (last 100 lines) ---")
+            print("\n--- SWMM REPORT FILE (last 50 lines) ---")
             with open(rpt_file, 'r') as f:
                 lines = f.readlines()
-                for line in lines[-100:]:
+                for line in lines[-50:]:
                     print(line.rstrip())
             print("--- END REPORT ---\n")
         
@@ -130,45 +148,36 @@ def main():
         print(f"ERROR during simulation: {e}")
         import traceback
         traceback.print_exc()
+        # Try to close SWMM gracefully
+        try:
+            solver.swmm_end()
+            solver.swmm_close()
+        except:
+            pass
         import sentry_sdk
         sentry_sdk.capture_exception(e)
         return 1
     
     # =========================================================================
-    # STEP 3: OGS Sizing Analysis
+    # STEP 3: OGS Sizing Analysis (using captured flow data)
     # =========================================================================
     print("\n[STEP 3/3] Calculating Q_wq (Water Quality Flow Rate)...")
     print("-" * 70)
     
-    if not out_file.exists():
-        print(f"ERROR: Output file not found: {out_file}")
+    if not flow_data:
+        print("ERROR: No flow data captured during simulation")
         return 1
     
-    # Import and run OGS analysis
-    from ogs_sizing import read_link_flow_series, calculate_qwq, format_flow
-    import logging
+    # Import analysis functions
+    from ogs_sizing import calculate_qwq, format_flow
+    import numpy as np
     
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s | %(levelname)s | %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logger = logging.getLogger(__name__)
-    
-    LINK_ID = "Link_1"
     CAPTURE_PERCENTAGES = [50, 75, 80, 90, 95]
     
-    # Read data
-    print(f"\nReading flow series for link: {LINK_ID}")
-    t_read_start = time.perf_counter()
-    
-    flows, dt_seconds = read_link_flow_series(str(out_file), LINK_ID)
-    
-    t_read = time.perf_counter() - t_read_start
-    print(f">>> FILE READ TIME: {t_read:.4f} seconds <<<")
-    print(f"Records: {len(flows):,}")
-    print(f"Time span: {len(flows) * dt_seconds / 86400 / 365.25:.1f} years")
+    # Use captured flow data
+    print(f"\nUsing {len(flow_data):,} captured flow records")
+    flows = np.array([f[1] for f in flow_data])
+    dt_seconds = 3600  # 1 hour intervals
     
     # Process data
     print("\nCalculating capture curve...")
@@ -207,7 +216,7 @@ def main():
     print("\n" + "=" * 70)
     print("BENCHMARK TIMING SUMMARY")
     print("=" * 70)
-    print(f"  File Read:      {t_read:.4f} s")
+    print(f"  Simulation:     {t_sim:.2f} s")
     print(f"  Processing:     {t_process:.4f} s")
     print(f"  TOTAL RUNTIME:  {total_time:.2f} s")
     print("=" * 70)
