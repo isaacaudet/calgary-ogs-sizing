@@ -217,22 +217,17 @@ def generate_calgary_rainfall(
     print(f"\nWriting {output_file}...")
     
     with open(output_file, 'w') as f:
-        # Write header comment
-        f.write(";; Calgary Synthetic Rainfall Data\n")
-        f.write(f";; Period: {start_year}-{end_year}\n")
-        f.write(f";; Generated for SWMM Continuous Simulation\n")
-        f.write(";; Station: CALGARY_SYN\n")
-        f.write(";;\n")
-        
-        # Write non-zero rainfall values in SWMM format
-        # Format: STA_ID  YYYY  MM  DD  HH  MM  VALUE
+        # Write non-zero rainfall values in SWMM user-prepared format
+        # NO COMMENTS - SWMM can't parse them
+        # Format: STA_ID YYYY MM DD HH MM VALUE (space-delimited)
         current = start_date
         records_written = 0
         
         for i, value in enumerate(rainfall):
             if value > 0.001:  # Only write non-zero values
-                f.write(f"CALGARY_SYN  {current.year}  {current.month:2d}  "
-                       f"{current.day:2d}  {current.hour:2d}  00  {value:.4f}\n")
+                # SWMM user-prepared format
+                f.write(f"CALGARY_SYN {current.year} {current.month} "
+                       f"{current.day} {current.hour} 0 {value:.4f}\n")
                 records_written += 1
             current += timedelta(hours=1)
     
