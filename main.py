@@ -18,14 +18,13 @@ from pathlib import Path
 # Initialize Sentry for error tracking
 import sentry_sdk
 
-SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
-if SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        traces_sample_rate=1.0,
-        environment=os.environ.get("RAILWAY_ENVIRONMENT", "development"),
-    )
-    print("Sentry initialized for error tracking")
+sentry_sdk.init(
+    dsn="https://3ccbff0225190883daf241fbfbac83e9@o4510583078322176.ingest.us.sentry.io/4510583080681472",
+    traces_sample_rate=1.0,
+    send_default_pii=True,
+    environment=os.environ.get("RAILWAY_ENVIRONMENT", "production"),
+)
+print("Sentry initialized for error tracking")
 
 
 def main():
