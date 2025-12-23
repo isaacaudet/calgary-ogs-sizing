@@ -84,46 +84,38 @@ def main():
         rpt_file.unlink()
     
     print("Running 1-year continuous simulation (2020)...")
-    print("Capturing flow data during simulation...")
+    print("Capturing flow data using pyswmm...")
     
     t_start = time.perf_counter()
     flow_data = []  # Store (elapsed_hours, flow_cms) tuples
     
     try:
-        from swmm.toolkit import solver
+        from pyswmm import Simulation, Links
         import numpy as np
         
-        # Use stepped approach to capture flow data directly
-        solver.swmm_open(str(inp_file), str(rpt_file), str(out_file))
-        solver.swmm_start(1)  # 1 = save results
-        
-        # Find link index for Link_1
-        link_idx = solver.swmm_getObjectIndex(3, "Link_1")  # 3 = LINK object type
-        print(f"Link_1 index: {link_idx}")
-        
-        step_count = 0
-        report_interval = 3600  # Report every hour (3600 seconds)
-        last_report = 0
-        
-        while True:
-            elapsed_sec = solver.swmm_step()
-            if elapsed_sec == 0:
-                break
+        # Use pyswmm for better control over simulation
+        with Simulation(str(inp_file)) as sim:
+            link = Links(sim)["Link_1"]
+            print(f"Found Link_1: {link.linkid}")
             
-            step_count += 1
+            step_count = 0
+            last_hour = -1
             
-            # Get flow at report intervals (approximately hourly)
-            if elapsed_sec - last_report >= report_interval:
-                # Get current flow rate for Link_1 (attribute 0 = flow rate)
-                flow_cms = solver.swmm_getLinkResult(link_idx, 0)
-                flow_data.append((elapsed_sec / 3600, flow_cms))  # Store hours, flow
-                last_report = elapsed_sec
+            for step in sim:
+                step_count += 1
                 
-                if len(flow_data) % 100 == 0:
-                    print(f"  Captured {len(flow_data)} flow records, elapsed: {elapsed_sec/86400:.1f} days")
-        
-        solver.swmm_end()
-        solver.swmm_close()
+                # Get current simulation time in hours
+                current_hour = sim.current_time.hour + (sim.current_time.day - 1) * 24
+                
+                # Capture flow data hourly
+                if current_hour != last_hour:
+                    flow_cms = link.flow  # Get current flow rate
+                    elapsed_hours = step_count / 120  # Approximate (30-sec routing step)
+                    flow_data.append((elapsed_hours, abs(flow_cms)))
+                    last_hour = current_hour
+                    
+                    if len(flow_data) % 500 == 0:
+                        print(f"  Captured {len(flow_data)} flow records, day {sim.current_time.day}")
         
         t_sim = time.perf_counter() - t_start
         print(f"\n>>> SWMM SIMULATION TIME: {t_sim:.2f} seconds <<<")
@@ -132,15 +124,15 @@ def main():
         
         # Convert to numpy array for analysis
         if flow_data:
-            flows = np.array([f[1] for f in flow_data])
-            print(f"Flow stats: min={flows.min():.4f}, max={flows.max():.4f}, mean={flows.mean():.4f} CMS")
+            flows_arr = np.array([f[1] for f in flow_data])
+            print(f"Flow stats: min={flows_arr.min():.6f}, max={flows_arr.max():.4f}, mean={flows_arr.mean():.6f} CMS")
         
         # Print report file summary
         if rpt_file.exists():
-            print("\n--- SWMM REPORT FILE (last 50 lines) ---")
+            print("\n--- SWMM REPORT FILE (last 30 lines) ---")
             with open(rpt_file, 'r') as f:
                 lines = f.readlines()
-                for line in lines[-50:]:
+                for line in lines[-30:]:
                     print(line.rstrip())
             print("--- END REPORT ---\n")
         
@@ -148,12 +140,6 @@ def main():
         print(f"ERROR during simulation: {e}")
         import traceback
         traceback.print_exc()
-        # Try to close SWMM gracefully
-        try:
-            solver.swmm_end()
-            solver.swmm_close()
-        except:
-            pass
         import sentry_sdk
         sentry_sdk.capture_exception(e)
         return 1
