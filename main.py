@@ -83,7 +83,7 @@ def main():
         try:
             from swmm.toolkit import solver
             
-            solver.run(
+            solver.swmm_run(
                 str(inp_file),
                 str(rpt_file),
                 str(out_file)

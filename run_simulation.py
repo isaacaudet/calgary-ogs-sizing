@@ -60,7 +60,7 @@ def main():
         from swmm.toolkit import solver
         
         # Run the simulation
-        solver.run(
+        solver.swmm_run(
             "calgary_model.inp",
             "calgary_model.rpt", 
             "model_run.out"
