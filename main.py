@@ -76,72 +76,63 @@ def main():
         print(f"ERROR: Model file not found: {inp_file}")
         return 1
     
-    # Check if we need to re-run simulation
-    run_sim = True
+    # Always delete old output to ensure fresh run
     if out_file.exists():
-        # Check if output is newer than input
-        if out_file.stat().st_mtime > inp_file.stat().st_mtime:
-            print(f"Using existing output: {out_file}")
-            print(f"Size: {out_file.stat().st_size / (1024*1024):.1f} MB")
-            run_sim = False
+        out_file.unlink()
+        print("Deleted old output file")
+    if rpt_file.exists():
+        rpt_file.unlink()
     
-    if run_sim:
-        print("Running 1-year continuous simulation (2020)...")
-        print("This may take 1-5 minutes depending on resources...")
+    print("Running 1-year continuous simulation (2020)...")
+    print("This may take 1-5 minutes depending on resources...")
+    
+    t_start = time.perf_counter()
+    
+    try:
+        from swmm.toolkit import solver
         
-        t_start = time.perf_counter()
+        # Use swmm_run for simplest approach
+        solver.swmm_run(str(inp_file), str(rpt_file), str(out_file))
         
-        try:
-            from swmm.toolkit import solver
+        t_sim = time.perf_counter() - t_start
+        print(f"\n>>> SWMM SIMULATION TIME: {t_sim:.2f} seconds <<<")
+        
+        if out_file.exists():
+            print(f"Output file: {out_file}")
+            print(f"Size: {out_file.stat().st_size / (1024*1024):.1f} MB")
             
-            # Use full workflow to ensure proper output file finalization
-            # swmm_run() alone may not properly close the output file
-            solver.swmm_open(str(inp_file), str(rpt_file), str(out_file))
-            solver.swmm_start(True)  # True = save results to output file
-            
-            # Run simulation step by step
-            step_count = 0
-            while True:
-                elapsed_time = solver.swmm_step()
-                step_count += 1
-                if step_count % 1000 == 0:
-                    print(f"  Step {step_count}, elapsed: {elapsed_time:.1f} seconds")
-                if elapsed_time == 0:
-                    break
-            
-            solver.swmm_end()
-            solver.swmm_close()
-            
-            t_sim = time.perf_counter() - t_start
-            print(f"\n>>> SWMM SIMULATION TIME: {t_sim:.2f} seconds <<<")
-            print(f">>> Total steps: {step_count:,} <<<")
-            
-            if out_file.exists():
-                print(f"Output file: {out_file}")
-                print(f"Size: {out_file.stat().st_size / (1024*1024):.1f} MB")
-            
-            # Print report file to see any errors/warnings
-            if rpt_file.exists():
-                print("\n--- SWMM REPORT FILE (last 100 lines) ---")
-                with open(rpt_file, 'r') as f:
-                    lines = f.readlines()
-                    for line in lines[-100:]:
-                        print(line.rstrip())
-                print("--- END REPORT ---\n")
-            
-        except Exception as e:
-            print(f"ERROR during simulation: {e}")
-            import traceback
-            traceback.print_exc()
-            # Try to close SWMM gracefully
+            # Debug: check output file header
+            from swmm.toolkit import output, shared_enum
             try:
-                solver.swmm_end()
-                solver.swmm_close()
-            except:
-                pass
-            import sentry_sdk
-            sentry_sdk.capture_exception(e)
-            return 1
+                handle = output.init()
+                output.open(handle, str(out_file))
+                proj_size = output.get_proj_size(handle)
+                print(f"Output file proj_size: {proj_size}")
+                print(f"  Subcatchments: {proj_size[0]}")
+                print(f"  Nodes: {proj_size[1]}")
+                print(f"  Links: {proj_size[2]}")
+                print(f"  Pollutants: {proj_size[3]}")
+                print(f"  Periods: {proj_size[4]}")
+                output.close(handle)
+            except Exception as e:
+                print(f"Error reading output file: {e}")
+        
+        # Print report file to see any errors/warnings
+        if rpt_file.exists():
+            print("\n--- SWMM REPORT FILE (last 100 lines) ---")
+            with open(rpt_file, 'r') as f:
+                lines = f.readlines()
+                for line in lines[-100:]:
+                    print(line.rstrip())
+            print("--- END REPORT ---\n")
+        
+    except Exception as e:
+        print(f"ERROR during simulation: {e}")
+        import traceback
+        traceback.print_exc()
+        import sentry_sdk
+        sentry_sdk.capture_exception(e)
+        return 1
     
     # =========================================================================
     # STEP 3: OGS Sizing Analysis
