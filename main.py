@@ -86,7 +86,7 @@ def main():
             run_sim = False
     
     if run_sim:
-        print("Running 30-year continuous simulation...")
+        print("Running 1-year continuous simulation (2020)...")
         print("This may take 1-5 minutes depending on resources...")
         
         t_start = time.perf_counter()
@@ -94,14 +94,27 @@ def main():
         try:
             from swmm.toolkit import solver
             
-            solver.swmm_run(
-                str(inp_file),
-                str(rpt_file),
-                str(out_file)
-            )
+            # Use full workflow to ensure proper output file finalization
+            # swmm_run() alone may not properly close the output file
+            solver.swmm_open(str(inp_file), str(rpt_file), str(out_file))
+            solver.swmm_start(True)  # True = save results to output file
+            
+            # Run simulation step by step
+            step_count = 0
+            while True:
+                elapsed_time = solver.swmm_step()
+                step_count += 1
+                if step_count % 1000 == 0:
+                    print(f"  Step {step_count}, elapsed: {elapsed_time:.1f} seconds")
+                if elapsed_time == 0:
+                    break
+            
+            solver.swmm_end()
+            solver.swmm_close()
             
             t_sim = time.perf_counter() - t_start
             print(f"\n>>> SWMM SIMULATION TIME: {t_sim:.2f} seconds <<<")
+            print(f">>> Total steps: {step_count:,} <<<")
             
             if out_file.exists():
                 print(f"Output file: {out_file}")
@@ -111,6 +124,14 @@ def main():
             print(f"ERROR during simulation: {e}")
             import traceback
             traceback.print_exc()
+            # Try to close SWMM gracefully
+            try:
+                solver.swmm_end()
+                solver.swmm_close()
+            except:
+                pass
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
             return 1
     
     # =========================================================================
