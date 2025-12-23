@@ -4,7 +4,7 @@ Calgary OGS Sizing Analysis - Main Entry Point
 
 Runs the complete pipeline:
 1. Generate Calgary rainfall (if not exists)
-2. Run SWMM continuous simulation (30 years)
+2. Run SWMM continuous simulation
 3. Calculate Q_wq (90% Water Quality Flow Rate)
 
 For Railway cloud deployment benchmarking.
@@ -14,6 +14,18 @@ import time
 import sys
 import os
 from pathlib import Path
+
+# Initialize Sentry for error tracking
+import sentry_sdk
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=1.0,
+        environment=os.environ.get("RAILWAY_ENVIRONMENT", "development"),
+    )
+    print("Sentry initialized for error tracking")
 
 
 def main():

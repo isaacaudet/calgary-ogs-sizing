@@ -7,3 +7,6 @@ swmm-toolkit>=0.15.0
 
 # NumPy for vectorized array operations and rainfall generation
 numpy>=1.21.0
+
+# Sentry for error tracking and monitoring
+sentry-sdk>=1.0.0
