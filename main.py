@@ -83,7 +83,7 @@ def main():
     if rpt_file.exists():
         rpt_file.unlink()
     
-    print("Running 1-year continuous simulation (2020)...")
+    print("Running 30-year continuous simulation (1991-2020)...")
     print("Capturing flow data using pyswmm...")
     
     t_start = time.perf_counter()

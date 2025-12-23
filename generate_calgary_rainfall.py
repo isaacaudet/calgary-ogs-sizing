@@ -267,7 +267,7 @@ def generate_calgary_rainfall(
 
 if __name__ == "__main__":
     stats = generate_calgary_rainfall(
-        start_year=2020,
+        start_year=1991,
         end_year=2020,
         output_file="calgary_rainfall.dat",
         seed=42
