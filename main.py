@@ -217,7 +217,7 @@ def main():
         "dry_periods": results['total_dry_periods'],
         "capture_flows": {str(k): v for k, v in results['capture_flows'].items()},
         "timing": {
-            "read_seconds": t_read,
+            "simulation_seconds": t_sim,
             "process_seconds": t_process,
             "total_seconds": total_time
         },
