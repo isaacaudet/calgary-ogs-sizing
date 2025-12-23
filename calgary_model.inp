@@ -1,0 +1,173 @@
+[TITLE]
+;;Project Title/Notes
+Calgary Urban Catchment - OGS Sizing Model
+30-Year Continuous Simulation (1991-2020)
+Typical residential/commercial development
+
+[OPTIONS]
+;;Option             Value
+FLOW_UNITS           CMS
+INFILTRATION         HORTON
+FLOW_ROUTING         DYNWAVE
+LINK_OFFSETS         DEPTH
+MIN_SLOPE            0.001
+ALLOW_PONDING        NO
+SKIP_STEADY_STATE    NO
+START_DATE           01/01/1991
+START_TIME           00:00:00
+REPORT_START_DATE    01/01/1991
+REPORT_START_TIME    00:00:00
+END_DATE             12/31/2020
+END_TIME             23:00:00
+SWEEP_START          01/01
+SWEEP_END            12/31
+DRY_DAYS             0
+REPORT_STEP          00:05:00
+WET_STEP             00:01:00
+DRY_STEP             01:00:00
+ROUTING_STEP         0:00:30
+INERTIAL_DAMPING     PARTIAL
+NORMAL_FLOW_LIMITED  BOTH
+FORCE_MAIN_EQUATION  H-W
+VARIABLE_STEP        0.75
+LENGTHENING_STEP     0
+MIN_SURFAREA         1.167
+MAX_TRIALS           8
+HEAD_TOLERANCE       0.0015
+SYS_FLOW_TOL         5
+LAT_FLOW_TOL         5
+MINIMUM_STEP         0.5
+THREADS              4
+
+[EVAPORATION]
+;;Data Source    Parameters
+;;--------------
+MONTHLY          0.5  0.8  1.5  2.5  4.0  5.0  5.5  5.0  3.5  2.0  1.0  0.5
+DRY_ONLY         NO
+
+[RAINGAGES]
+;;Name           Format    Interval SCF      Source    
+;;-------------- --------- -------- -------- ----------
+CALGARY_SYN      INTENSITY 1:00     1.0      FILE       "calgary_rainfall.dat" CALGARY_SYN MM
+
+[SUBCATCHMENTS]
+;;Name           Rain Gage        Outlet           Area     %Imperv  Width    %Slope   CurbLen  SnowPack        
+;;-------------- ---------------- ---------------- -------- -------- -------- -------- -------- ----------------
+;; Residential areas - typical Calgary suburban development
+S_Residential_1  CALGARY_SYN      J1               15.0     55       400      2.0      0                        
+S_Residential_2  CALGARY_SYN      J2               12.0     50       350      2.5      0                        
+S_Residential_3  CALGARY_SYN      J3               18.0     45       450      1.8      0                        
+;; Commercial/Industrial area
+S_Commercial     CALGARY_SYN      J4               8.0      85       200      1.5      0                        
+;; Parking lot / high imperviousness
+S_Parking        CALGARY_SYN      J5               3.0      95       150      1.0      0                        
+;; Green space / park
+S_Park           CALGARY_SYN      J6               10.0     10       300      3.0      0                        
+
+[SUBAREAS]
+;;Subcatchment   N-Imperv   N-Perv     S-Imperv   S-Perv     PctZero    RouteTo    PctRouted 
+;;-------------- ---------- ---------- ---------- ---------- ---------- ---------- ----------
+S_Residential_1  0.015      0.24       1.5        5.0        25         OUTLET    
+S_Residential_2  0.015      0.24       1.5        5.0        25         OUTLET    
+S_Residential_3  0.015      0.24       1.5        5.0        25         OUTLET    
+S_Commercial     0.012      0.20       1.0        3.0        50         OUTLET    
+S_Parking        0.012      0.20       0.5        2.0        75         OUTLET    
+S_Park           0.020      0.30       2.0        7.0        5          OUTLET    
+
+[INFILTRATION]
+;;Subcatchment   MaxRate    MinRate    Decay      DryTime    MaxInfil  
+;;-------------- ---------- ---------- ---------- ---------- ----------
+;; Calgary soils: predominantly clay and glacial till
+S_Residential_1  50         5          4          7          0         
+S_Residential_2  50         5          4          7          0         
+S_Residential_3  50         5          4          7          0         
+S_Commercial     30         3          4          7          0         
+S_Parking        20         2          4          7          0         
+S_Park           75         10         4          7          0         
+
+[JUNCTIONS]
+;;Name           Elevation  MaxDepth   InitDepth  SurDepth   Aponded   
+;;-------------- ---------- ---------- ---------- ---------- ----------
+J1               100.0      2.5        0          0          0         
+J2               99.5       2.5        0          0          0         
+J3               99.0       2.5        0          0          0         
+J4               99.2       2.5        0          0          0         
+J5               99.3       2.5        0          0          0         
+J6               99.8       2.5        0          0          0         
+J_Main           98.0       3.0        0          0          0         
+J_OGS_Inlet      97.5       3.0        0          0          0         
+
+[OUTFALLS]
+;;Name           Elevation  Type       Stage Data       Gated    Route To        
+;;-------------- ---------- ---------- ---------------- -------- ----------------
+Outfall          95.0       FREE                        NO                       
+
+[CONDUITS]
+;;Name           From Node        To Node          Length     Roughness  InOffset   OutOffset  InitFlow   MaxFlow   
+;;-------------- ---------------- ---------------- ---------- ---------- ---------- ---------- ---------- ----------
+;; Collection pipes from subcatchments
+C1               J1               J_Main           200        0.013      0          0          0          0         
+C2               J2               J_Main           180        0.013      0          0          0          0         
+C3               J3               J_Main           220        0.013      0          0          0          0         
+C4               J4               J_Main           150        0.013      0          0          0          0         
+C5               J5               J_Main           120        0.013      0          0          0          0         
+C6               J6               J_Main           250        0.013      0          0          0          0         
+;; Main trunk to OGS
+C_Trunk          J_Main           J_OGS_Inlet      100        0.013      0          0          0          0         
+;; OGS bypass/overflow and outlet - THIS IS THE LINK FOR Q_WQ ANALYSIS
+Link_1           J_OGS_Inlet      Outfall          50         0.013      0          0          0          0         
+
+[XSECTIONS]
+;;Link           Shape        Geom1            Geom2      Geom3      Geom4      Barrels    Culvert   
+;;-------------- ------------ ---------------- ---------- ---------- ---------- ---------- ----------
+C1               CIRCULAR     0.6              0          0          0          1                    
+C2               CIRCULAR     0.6              0          0          0          1                    
+C3               CIRCULAR     0.6              0          0          0          1                    
+C4               CIRCULAR     0.45             0          0          0          1                    
+C5               CIRCULAR     0.3              0          0          0          1                    
+C6               CIRCULAR     0.45             0          0          0          1                    
+C_Trunk          CIRCULAR     0.9              0          0          0          1                    
+Link_1           CIRCULAR     0.9              0          0          0          1                    
+
+[LOSSES]
+;;Link           Kentry     Kexit      Kavg       Flap Gate  Seepage   
+;;-------------- ---------- ---------- ---------- ---------- ----------
+
+[REPORT]
+;;Reporting Options
+SUBCATCHMENTS ALL
+NODES ALL
+LINKS ALL
+
+[TAGS]
+
+[MAP]
+DIMENSIONS -500.0 -500.0 500.0 500.0
+Units      Meters
+
+[COORDINATES]
+;;Node           X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+J1               -200               300               
+J2               -200               100               
+J3               -200               -100              
+J4               200                200               
+J5               200                0                 
+J6               200                -200              
+J_Main           0                  0                 
+J_OGS_Inlet      0                  -200              
+Outfall          0                  -400              
+
+[VERTICES]
+;;Link           X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+
+[Polygons]
+;;Subcatchment   X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+
+[SYMBOLS]
+;;Gage           X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+CALGARY_SYN      -400               400               
+

@@ -1,0 +1,9 @@
+# Calgary OGS Sizing Analysis Dependencies
+# For SWMM continuous simulation and water quality flow rate calculation
+
+# SWMM toolkit - for running simulations and reading binary output
+# Lightweight alternative to pyswmm/swmmio
+swmm-toolkit>=0.15.0
+
+# NumPy for vectorized array operations and rainfall generation
+numpy>=1.21.0

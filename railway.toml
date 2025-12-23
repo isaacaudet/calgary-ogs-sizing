@@ -1,0 +1,9 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Run as a one-time job (not a web service)
+startCommand = "python main.py"
+restartPolicyType = "NEVER"
+
