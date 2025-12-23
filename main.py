@@ -120,6 +120,15 @@ def main():
                 print(f"Output file: {out_file}")
                 print(f"Size: {out_file.stat().st_size / (1024*1024):.1f} MB")
             
+            # Print report file to see any errors/warnings
+            if rpt_file.exists():
+                print("\n--- SWMM REPORT FILE (last 100 lines) ---")
+                with open(rpt_file, 'r') as f:
+                    lines = f.readlines()
+                    for line in lines[-100:]:
+                        print(line.rstrip())
+                print("--- END REPORT ---\n")
+            
         except Exception as e:
             print(f"ERROR during simulation: {e}")
             import traceback
