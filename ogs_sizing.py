@@ -104,6 +104,13 @@ def read_link_flow_series(
         n_periods = proj_size[4]  # PERIODS is index 4
         logger.info(f"  Total links: {n_links}, Total periods: {n_periods:,}")
         
+        # Check if output has data
+        if n_periods == 0:
+            raise ValueError(
+                "Output file has 0 reporting periods. "
+                "Check SWMM report settings or simulation errors in .rpt file."
+            )
+        
         # Find link index by name
         link_index = find_link_index(handle, output, shared_enum, link_id)
         logger.info(f"  Link '{link_id}' found at index: {link_index}")
